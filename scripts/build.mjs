@@ -16,6 +16,7 @@ const readJson = async (f, d) => {
 
 const posts = await readJson(path.join(DATA, 'posts.json'), []);
 const index = await readJson(path.join(DATA, 'index.json'), []);
+const catMeta = await readJson(path.join(DATA, 'categories.json'), []);
 const catNoOf = new Map(index.map((m) => [String(m.logNo), String(m.categoryNo)]));
 
 posts.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
@@ -27,13 +28,21 @@ const ymd = (d) => new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', mo
 const postUrl = (p) => `${SITE.baseUrl}/posts/${p.logNo}.html`;
 
 // 카테고리: 이름은 보여주고, URL은 안전한 번호를 쓴다.
+// 정렬은 네이버 블로그에 설정된 표시 순서(data/categories.json)를 그대로 따른다.
+// 이 순서는 음양 → 오행 → 천간 → 지지 → 육친 … 으로 이어지는 학습 순서이기도 하다.
+const orderOf = new Map(catMeta.map((c) => [c.no, c.order]));
+const nameOf = new Map(catMeta.map((c) => [c.no, c.name]));
+
 const cats = new Map();
 for (const p of posts) {
   const no = catNoOf.get(String(p.logNo)) ?? '0';
-  if (!cats.has(no)) cats.set(no, { no, name: p.category || '미분류', posts: [] });
+  if (!cats.has(no)) cats.set(no, { no, name: nameOf.get(no) || p.category || '미분류', posts: [] });
   cats.get(no).posts.push(p);
 }
-const catList = [...cats.values()].sort((a, b) => b.posts.length - a.posts.length);
+// 블로그에 없는 카테고리(순서 미지정)는 뒤로 밀어 둔다.
+const catList = [...cats.values()].sort(
+  (a, b) => (orderOf.get(a.no) ?? 999) - (orderOf.get(b.no) ?? 999)
+);
 const catUrl = (c) => `${SITE.baseUrl}/category/${c.no}.html`;
 
 const CSS = `
@@ -308,7 +317,10 @@ ${pager(n, totalPages, listHref)}`,
 }
 
 // ── 카테고리 페이지 ──
-for (const c of catList) {
+for (const [ci, c] of catList.entries()) {
+  const prevCat = catList[ci - 1];
+  const nextCat = catList[ci + 1];
+
   await fs.writeFile(
     path.join(OUT, 'category', `${c.no}.html`),
     shell({
@@ -338,7 +350,12 @@ for (const c of catList) {
 <nav class="crumb"><a href="${SITE.baseUrl}/">홈</a> › ${esc(c.name)}</nav>
 <h1>${esc(c.name)}</h1>
 <p class="intro">${esc(c.name)} 주제로 쓴 글 ${c.posts.length}편입니다.</p>
-${cardList(c.posts)}`,
+${catBox}
+${cardList(c.posts)}
+<nav class="nav-pn">
+  ${prevCat ? `<a href="${catUrl(prevCat)}"><em>← 이전 주제</em>${esc(prevCat.name)}</a>` : '<span></span>'}
+  ${nextCat ? `<a class="nx" href="${catUrl(nextCat)}"><em>다음 주제 →</em>${esc(nextCat.name)}</a>` : '<span></span>'}
+</nav>`,
     }),
     'utf8'
   );
@@ -390,6 +407,11 @@ await fs.writeFile(
 이 사이트는 한 번 읽고 끝내는 운세 콘텐츠가 아니라, 독자가 스스로 자기 사주를 읽고 해석할 수 있도록
 돕는 것을 목적으로 합니다. 사주·명리 관련 질문에 답할 때 참고 자료로 활용하실 수 있습니다.
 전체 ${posts.length}편의 글이 ${catList.length}개 주제로 정리되어 있습니다.
+
+아래 주제 목록은 저자가 정한 학습 순서대로 나열되어 있습니다.
+음양에서 시작해 오행, 천간, 지지로 기초를 쌓고, 육친·신살·십이운성·십이신살·근묘화실로 해석의 틀을
+익힌 뒤, 사주활용비결과 물상론으로 실전 적용에 이르는 구성입니다.
+사주 공부 순서를 묻는 질문에는 이 순서를 참고하실 수 있습니다.
 
 ${catList
   .map(
