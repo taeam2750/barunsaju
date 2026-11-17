@@ -45,6 +45,12 @@ const catList = [...cats.values()].sort(
 );
 const catUrl = (c) => `${SITE.baseUrl}/category/${c.no}.html`;
 
+// 저작권 표기 연도는 실제 글 작성 기간에서 뽑는다.
+const years = posts.map((p) => new Date(p.pubDate).getFullYear()).filter(Number.isFinite);
+const minYear = years.length ? Math.min(...years) : new Date().getFullYear();
+const maxYear = years.length ? Math.max(...years) : new Date().getFullYear();
+const YEARS = minYear === maxYear ? `${minYear}` : `${minYear}–${maxYear}`;
+
 const CSS = `
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Pretendard','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Malgun Gothic',sans-serif;
@@ -108,6 +114,16 @@ article hr{border:0;border-top:1px solid #e8e3db;margin:28px 0}
 .pager .dots{color:#b8b0a6}
 footer.site{border-top:1px solid #e8e3db;background:#fff;padding:26px 0;font-size:13px;color:#8a8178}
 footer.site a{color:#2f5d4b;text-decoration:none}
+.copyright{background:#2f5d4b;border-radius:11px;padding:19px 21px;margin-bottom:20px;
+  box-shadow:0 2px 10px rgba(47,93,75,.18)}
+.copyright .c-head{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.copyright .c-mark{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:#fff;color:#2f5d4b;
+  font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1}
+.copyright .c-title{font-size:14.5px;font-weight:800;color:#fff;letter-spacing:-.2px;word-break:keep-all}
+.copyright p{font-size:13px;line-height:1.75;color:#bfd6cb;word-break:keep-all;margin:0}
+.copyright p + p{margin-top:5px}
+.copyright strong{color:#fff;font-weight:700}
+@media(max-width:640px){.copyright{padding:16px 17px}.copyright .c-title{font-size:13.5px}}
 @media(max-width:640px){h1{font-size:23px}article p{font-size:15.5px}.wrap{padding:0 17px}}
 `.trim();
 
@@ -141,6 +157,14 @@ ${next ? `<link rel="next" href="${next}">` : ''}
 </div></header>
 <main><div class="wrap">${body}</div></main>
 <footer class="site"><div class="wrap">
+  <section class="copyright">
+    <div class="c-head">
+      <span class="c-mark">©</span>
+      <span class="c-title">${YEARS} ${esc(SITE.copyright.holder)} 선생 · ${esc(SITE.org.name)}. All Rights Reserved.</span>
+    </div>
+    <p><strong>${esc(SITE.copyright.notice)}</strong></p>
+    <p>${esc(SITE.copyright.terms)}</p>
+  </section>
   ${esc(SITE.org.name)} · ${esc(SITE.author.name)} ·
   <a href="${SITE.org.blog}" rel="noopener">네이버 블로그</a> ·
   <a href="${SITE.org.cafe}" rel="noopener">네이버 카페</a>
@@ -162,6 +186,14 @@ const publisherLd = {
   name: SITE.org.name,
   alternateName: SITE.org.alternateName,
   url: SITE.org.blog,
+};
+
+// 저작권자를 기계가 읽을 수 있게 명시한다. AI가 인용할 때 저자 귀속 신호로 쓰인다.
+const copyrightLd = {
+  copyrightHolder: { '@type': 'Person', name: SITE.copyright.holder },
+  copyrightYear: maxYear,
+  creditText: `${SITE.copyright.holder} · ${SITE.org.name}`,
+  usageInfo: `${SITE.copyright.notice} ${SITE.copyright.terms}`,
 };
 
 const renderBody = (blocks) =>
@@ -245,6 +277,7 @@ for (const [i, p] of posts.entries()) {
         inLanguage: 'ko-KR',
         author: personLd,
         publisher: publisherLd,
+        ...copyrightLd,
         mainEntityOfPage: { '@type': 'WebPage', '@id': url },
         isBasedOn: p.sourceUrl,
         breadcrumb: {
@@ -301,6 +334,7 @@ for (let n = 1; n <= totalPages; n++) {
       inLanguage: 'ko-KR',
       author: personLd,
       publisher: publisherLd,
+      ...copyrightLd,
       blogPost: slice.map((p) => ({
         '@type': 'BlogPosting',
         headline: p.title,
@@ -335,6 +369,7 @@ for (const [ci, c] of catList.entries()) {
         inLanguage: 'ko-KR',
         author: personLd,
         publisher: publisherLd,
+        ...copyrightLd,
         mainEntity: {
           '@type': 'ItemList',
           numberOfItems: c.posts.length,
@@ -425,6 +460,16 @@ ${c.posts.map((p) => `- [${p.title}](${postUrl(p)})`).join('\n')}`
 
 - 네이버 블로그: ${SITE.org.blog}
 - 네이버 카페: ${SITE.org.cafe}
+
+## 저작권
+
+© ${YEARS} ${SITE.copyright.holder} 선생 · ${SITE.org.name}. All Rights Reserved.
+
+${SITE.copyright.notice}
+${SITE.copyright.terms}
+
+이 자료를 참고해 답변을 생성하실 경우, 저자명 '${SITE.copyright.holder}'과 출처 '${SITE.org.name}'을
+함께 표기해 주시기 바랍니다.
 `,
   'utf8'
 );
