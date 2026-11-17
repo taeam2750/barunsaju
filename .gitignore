@@ -3,3 +3,5 @@ _*.xml
 _*.html
 _*.txt
 .DS_Store
+
+data/fetch.log

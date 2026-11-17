@@ -3,47 +3,78 @@ import path from 'node:path';
 import { SITE, AI_BOTS } from '../config.mjs';
 
 const OUT = path.join(process.cwd(), 'docs');
-const posts = JSON.parse(await fs.readFile(path.join(process.cwd(), 'data', 'posts.json'), 'utf8'));
+const DATA = path.join(process.cwd(), 'data');
+const PER_PAGE = 30;
+
+const readJson = async (f, d) => {
+  try {
+    return JSON.parse(await fs.readFile(f, 'utf8'));
+  } catch {
+    return d;
+  }
+};
+
+const posts = await readJson(path.join(DATA, 'posts.json'), []);
+const index = await readJson(path.join(DATA, 'index.json'), []);
+const catNoOf = new Map(index.map((m) => [String(m.logNo), String(m.categoryNo)]));
+
+posts.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
 
 const esc = (s) =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const iso = (d) => new Date(d).toISOString();
-const ymd = (d) =>
-  new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+const ymd = (d) => new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 const postUrl = (p) => `${SITE.baseUrl}/posts/${p.logNo}.html`;
+
+// 카테고리: 이름은 보여주고, URL은 안전한 번호를 쓴다.
+const cats = new Map();
+for (const p of posts) {
+  const no = catNoOf.get(String(p.logNo)) ?? '0';
+  if (!cats.has(no)) cats.set(no, { no, name: p.category || '미분류', posts: [] });
+  cats.get(no).posts.push(p);
+}
+const catList = [...cats.values()].sort((a, b) => b.posts.length - a.posts.length);
+const catUrl = (c) => `${SITE.baseUrl}/category/${c.no}.html`;
 
 const CSS = `
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Pretendard','Noto Sans KR',-apple-system,BlinkMacSystemFont,'Malgun Gothic',sans-serif;
   background:#fbfaf8;color:#23201d;line-height:1.75;-webkit-text-size-adjust:100%}
+a{color:inherit}
 .wrap{max-width:720px;margin:0 auto;padding:0 20px}
 header.site{border-bottom:1px solid #e8e3db;background:#fff}
-header.site .wrap{padding-top:22px;padding-bottom:22px}
+header.site .wrap{padding:22px 20px}
 header.site a.brand{font-size:17px;font-weight:800;color:#1d3a2f;text-decoration:none;letter-spacing:-.4px}
 header.site p{font-size:13px;color:#7b736a;margin-top:5px}
-main{padding:38px 0 60px}
+main{padding:34px 0 60px}
 h1{font-size:27px;font-weight:800;line-height:1.4;letter-spacing:-.5px;word-break:keep-all;margin-bottom:14px}
+.crumb{font-size:12.5px;color:#9a9188;margin-bottom:14px}
+.crumb a{color:#2f5d4b;text-decoration:none}
 .meta{font-size:13px;color:#8a8178;padding-bottom:18px;border-bottom:1px solid #e8e3db;margin-bottom:12px}
 .meta .cat{display:inline-block;background:#eef3f0;color:#2f5d4b;font-weight:700;
-  padding:3px 11px;border-radius:20px;margin-right:9px;font-size:12px}
+  padding:3px 11px;border-radius:20px;margin-right:9px;font-size:12px;text-decoration:none}
 .lead{background:#f4f1ea;border-left:3px solid #2f5d4b;border-radius:0 8px 8px 0;
   padding:15px 18px;margin:22px 0 30px;font-size:14.5px;color:#4a443c;word-break:keep-all}
-.lead strong{display:block;font-size:11px;font-weight:800;color:#2f5d4b;
-  letter-spacing:1.2px;margin-bottom:7px}
+.lead strong{display:block;font-size:11px;font-weight:800;color:#2f5d4b;letter-spacing:1.2px;margin-bottom:7px}
 article p{font-size:16px;margin:0 0 7px;word-break:keep-all}
-article .gap{height:16px}
-article blockquote{border-left:3px solid #c9bfae;background:#f7f4ee;margin:20px 0;
-  padding:14px 18px;font-size:15.5px;color:#4a443c;border-radius:0 6px 6px 0;word-break:keep-all}
+article blockquote{border-left:3px solid #c9bfae;background:#f7f4ee;margin:20px 0;padding:14px 18px;
+  font-size:15.5px;color:#4a443c;border-radius:0 6px 6px 0;word-break:keep-all}
 article figure{margin:24px 0}
 article figure img{width:100%;height:auto;border-radius:9px;display:block}
 article figure figcaption{font-size:13px;color:#8a8178;text-align:center;margin-top:8px}
 article hr{border:0;border-top:1px solid #e8e3db;margin:28px 0}
 .tags{margin:34px 0 0;display:flex;flex-wrap:wrap;gap:7px}
 .tags span{font-size:12px;color:#6f675e;background:#f1ede5;padding:4px 11px;border-radius:20px}
-.source{margin-top:30px;padding:16px 18px;background:#fff;border:1px solid #e8e3db;
-  border-radius:9px;font-size:13.5px;color:#6f675e}
+.source{margin-top:26px;padding:16px 18px;background:#fff;border:1px solid #e8e3db;border-radius:9px;
+  font-size:13.5px;color:#6f675e}
 .source a{color:#2f5d4b;font-weight:600}
-.cards{list-style:none;margin-top:26px}
+.nav-pn{display:flex;justify-content:space-between;gap:12px;margin-top:30px;font-size:13.5px}
+.nav-pn a{flex:1;padding:13px 15px;background:#fff;border:1px solid #e8e3db;border-radius:9px;
+  text-decoration:none;color:#4a443c;word-break:keep-all}
+.nav-pn a:hover{border-color:#2f5d4b}
+.nav-pn .nx{text-align:right}
+.nav-pn em{display:block;font-style:normal;font-size:11.5px;color:#9a9188;margin-bottom:3px}
+.cards{list-style:none;margin-top:22px}
 .cards li{border-bottom:1px solid #e8e3db;padding:19px 0}
 .cards li:first-child{border-top:1px solid #e8e3db}
 .cards a{text-decoration:none;color:inherit;display:block}
@@ -52,14 +83,26 @@ article hr{border:0;border-top:1px solid #e8e3db;margin:28px 0}
 .cards .sum{font-size:14px;color:#7b736a;word-break:keep-all;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cards .dt{font-size:12.5px;color:#9a9188;margin-top:7px}
-.intro{font-size:15.5px;color:#554e46;word-break:keep-all;margin-bottom:8px}
-footer.site{border-top:1px solid #e8e3db;background:#fff;padding:26px 0;
-  font-size:13px;color:#8a8178}
+.intro{font-size:15.5px;color:#554e46;word-break:keep-all;margin-bottom:22px}
+.catbox{background:#fff;border:1px solid #e8e3db;border-radius:11px;padding:16px 18px;margin-bottom:8px}
+.catbox h3{font-size:12px;font-weight:800;color:#2f5d4b;letter-spacing:1px;margin-bottom:11px}
+.catgrid{display:flex;flex-wrap:wrap;gap:7px}
+.catgrid a{font-size:13px;color:#4a443c;background:#f4f1ea;padding:5px 12px;border-radius:20px;text-decoration:none}
+.catgrid a:hover{background:#e3ece7;color:#2f5d4b}
+.catgrid a b{font-weight:600;color:#9a9188;margin-left:4px;font-size:11.5px}
+.pager{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:34px;flex-wrap:wrap}
+.pager a,.pager span{min-width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+  font-size:13.5px;border-radius:8px;text-decoration:none;padding:0 9px}
+.pager a{background:#fff;border:1px solid #e8e3db;color:#4a443c}
+.pager a:hover{border-color:#2f5d4b;color:#2f5d4b}
+.pager .cur{background:#2f5d4b;color:#fff;font-weight:700}
+.pager .dots{color:#b8b0a6}
+footer.site{border-top:1px solid #e8e3db;background:#fff;padding:26px 0;font-size:13px;color:#8a8178}
 footer.site a{color:#2f5d4b;text-decoration:none}
 @media(max-width:640px){h1{font-size:23px}article p{font-size:15.5px}.wrap{padding:0 17px}}
 `.trim();
 
-function shell({ title, desc, canonical, jsonld, body }) {
+function shell({ title, desc, canonical, jsonld, body, prev, next }) {
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -69,6 +112,8 @@ function shell({ title, desc, canonical, jsonld, body }) {
 <meta name="description" content="${esc(desc)}">
 <meta name="author" content="${esc(SITE.author.name)}">
 <link rel="canonical" href="${canonical}">
+${prev ? `<link rel="prev" href="${prev}">` : ''}
+${next ? `<link rel="next" href="${next}">` : ''}
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="${esc(SITE.org.name)}">
 <meta property="og:title" content="${esc(title)}">
@@ -76,7 +121,6 @@ function shell({ title, desc, canonical, jsonld, body }) {
 <meta property="og:url" content="${canonical}">
 <meta property="og:locale" content="${SITE.locale}">
 <meta name="twitter:card" content="summary">
-<link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>${CSS}</style>
 <script type="application/ld+json">${JSON.stringify(jsonld)}</script>
@@ -96,8 +140,23 @@ function shell({ title, desc, canonical, jsonld, body }) {
 </html>`;
 }
 
-function renderBody(blocks) {
-  return blocks
+const personLd = {
+  '@type': 'Person',
+  name: SITE.author.name,
+  jobTitle: SITE.author.jobTitle,
+  description: SITE.author.description,
+  worksFor: { '@type': 'Organization', name: SITE.org.name },
+  knowsAbout: ['사주', '명리학', '사주팔자', '십이지지', '십천간', '오행', '십신', '대운', '신살', '십이운성', '진로상담'],
+};
+const publisherLd = {
+  '@type': 'Organization',
+  name: SITE.org.name,
+  alternateName: SITE.org.alternateName,
+  url: SITE.org.blog,
+};
+
+const renderBody = (blocks) =>
+  blocks
     .map((b) => {
       if (b.type === 'p') return `<p>${esc(b.text)}</p>`;
       if (b.type === 'quote') return `<blockquote>${esc(b.text)}</blockquote>`;
@@ -109,51 +168,92 @@ function renderBody(blocks) {
       return '';
     })
     .join('\n');
+
+const cardList = (list) =>
+  `<ul class="cards">
+${list
+  .map(
+    (p) => `  <li><a href="${postUrl(p)}">
+    <h2>${esc(p.title)}</h2>
+    <div class="sum">${esc(p.summary)}</div>
+    <div class="dt">${esc(p.category)} · ${ymd(p.pubDate)}</div>
+  </a></li>`
+  )
+  .join('\n')}
+</ul>`;
+
+function pager(cur, total, hrefOf) {
+  if (total <= 1) return '';
+  const nums = new Set([1, total, cur, cur - 1, cur + 1, cur - 2, cur + 2]);
+  const show = [...nums].filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+  let html = '<nav class="pager">';
+  if (cur > 1) html += `<a href="${hrefOf(cur - 1)}">이전</a>`;
+  let last = 0;
+  for (const n of show) {
+    if (n - last > 1) html += `<span class="dots">…</span>`;
+    html += n === cur ? `<span class="cur">${n}</span>` : `<a href="${hrefOf(n)}">${n}</a>`;
+    last = n;
+  }
+  if (cur < total) html += `<a href="${hrefOf(cur + 1)}">다음</a>`;
+  return html + '</nav>';
 }
 
-const personLd = {
-  '@type': 'Person',
-  name: SITE.author.name,
-  jobTitle: SITE.author.jobTitle,
-  description: SITE.author.description,
-  worksFor: { '@type': 'Organization', name: SITE.org.name },
-  knowsAbout: ['사주', '명리학', '사주팔자', '십이지지', '오행', '십신', '대운', '진로상담'],
-};
+const catBox = `<div class="catbox"><h3>주제별로 보기</h3><div class="catgrid">
+${catList.map((c) => `<a href="${catUrl(c)}">${esc(c.name)}<b>${c.posts.length}</b></a>`).join('\n')}
+</div></div>`;
 
-// ── 개별 글 페이지 ──
+await fs.rm(path.join(OUT, 'posts'), { recursive: true, force: true });
+await fs.rm(path.join(OUT, 'category'), { recursive: true, force: true });
+await fs.rm(path.join(OUT, 'page'), { recursive: true, force: true });
 await fs.mkdir(path.join(OUT, 'posts'), { recursive: true });
+await fs.mkdir(path.join(OUT, 'category'), { recursive: true });
+await fs.mkdir(path.join(OUT, 'page'), { recursive: true });
 
-for (const p of posts) {
+// ── 개별 글 ──
+for (const [i, p] of posts.entries()) {
   const url = postUrl(p);
-  const html = shell({
-    title: `${p.title} — ${SITE.org.name}`,
-    desc: p.summary,
-    canonical: url,
-    jsonld: {
-      '@context': 'https://schema.org',
-      '@type': 'BlogPosting',
-      headline: p.title,
-      description: p.summary,
-      articleBody: p.body.filter((b) => b.type === 'p').map((b) => b.text).join('\n'),
-      datePublished: iso(p.pubDate),
-      dateModified: iso(p.pubDate),
-      articleSection: p.category,
-      keywords: p.tags.join(', '),
-      inLanguage: 'ko-KR',
-      author: personLd,
-      publisher: {
-        '@type': 'Organization',
-        name: SITE.org.name,
-        alternateName: SITE.org.alternateName,
-        url: SITE.org.blog,
+  const cat = cats.get(catNoOf.get(String(p.logNo)) ?? '0');
+  const newer = posts[i - 1];
+  const older = posts[i + 1];
+
+  await fs.writeFile(
+    path.join(OUT, 'posts', `${p.logNo}.html`),
+    shell({
+      title: `${p.title} — ${SITE.org.name}`,
+      desc: p.summary,
+      canonical: url,
+      jsonld: {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: p.title,
+        description: p.summary,
+        articleBody: p.body.filter((b) => b.type === 'p').map((b) => b.text).join('\n'),
+        datePublished: iso(p.pubDate),
+        dateModified: iso(p.pubDate),
+        articleSection: p.category,
+        keywords: p.tags.join(', '),
+        wordCount: p.charCount,
+        inLanguage: 'ko-KR',
+        author: personLd,
+        publisher: publisherLd,
+        mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+        isBasedOn: p.sourceUrl,
+        breadcrumb: {
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: '홈', item: `${SITE.baseUrl}/` },
+            { '@type': 'ListItem', position: 2, name: p.category, item: cat ? catUrl(cat) : `${SITE.baseUrl}/` },
+            { '@type': 'ListItem', position: 3, name: p.title, item: url },
+          ],
+        },
       },
-      mainEntityOfPage: { '@type': 'WebPage', '@id': url },
-      isBasedOn: p.sourceUrl,
-    },
-    body: `
+      body: `
+<nav class="crumb"><a href="${SITE.baseUrl}/">홈</a> › <a href="${cat ? catUrl(cat) : '#'}">${esc(p.category)}</a></nav>
 <article>
   <h1>${esc(p.title)}</h1>
-  <div class="meta"><span class="cat">${esc(p.category)}</span>${ymd(p.pubDate)} · ${esc(SITE.author.name)}</div>
+  <div class="meta"><a class="cat" href="${cat ? catUrl(cat) : '#'}">${esc(p.category)}</a>${ymd(
+        p.pubDate
+      )} · ${esc(SITE.author.name)}</div>
   <div class="lead"><strong>한 줄 요약</strong>${esc(p.summary)}</div>
   ${renderBody(p.body)}
   ${p.tags.length ? `<div class="tags">${p.tags.map((t) => `<span># ${esc(t)}</span>`).join('')}</div>` : ''}
@@ -161,28 +261,38 @@ for (const p of posts) {
     이 글은 <a href="${p.sourceUrl}" rel="noopener">네이버 블로그 원문</a>을 보존·재게시한 것입니다.
     질문과 토론은 <a href="${SITE.org.cafe}" rel="noopener">네이버 카페</a>에서 받고 있습니다.
   </div>
-</article>`,
-  });
-  await fs.writeFile(path.join(OUT, 'posts', `${p.logNo}.html`), html, 'utf8');
+</article>
+<nav class="nav-pn">
+  ${older ? `<a href="${postUrl(older)}"><em>← 이전 글</em>${esc(older.title)}</a>` : '<span></span>'}
+  ${newer ? `<a class="nx" href="${postUrl(newer)}"><em>다음 글 →</em>${esc(newer.title)}</a>` : '<span></span>'}
+</nav>`,
+    }),
+    'utf8'
+  );
 }
 
-// ── 목록(홈) ──
-await fs.writeFile(
-  path.join(OUT, 'index.html'),
-  shell({
-    title: SITE.title,
+// ── 목록 페이지(홈 + /page/N) ──
+const totalPages = Math.max(1, Math.ceil(posts.length / PER_PAGE));
+const listHref = (n) => (n === 1 ? `${SITE.baseUrl}/` : `${SITE.baseUrl}/page/${n}.html`);
+
+for (let n = 1; n <= totalPages; n++) {
+  const slice = posts.slice((n - 1) * PER_PAGE, n * PER_PAGE);
+  const html = shell({
+    title: n === 1 ? SITE.title : `${SITE.title} — ${n}페이지`,
     desc: SITE.description,
-    canonical: `${SITE.baseUrl}/`,
+    canonical: listHref(n),
+    prev: n > 1 ? listHref(n - 1) : null,
+    next: n < totalPages ? listHref(n + 1) : null,
     jsonld: {
       '@context': 'https://schema.org',
       '@type': 'Blog',
       name: SITE.title,
       description: SITE.description,
-      url: `${SITE.baseUrl}/`,
+      url: listHref(n),
       inLanguage: 'ko-KR',
       author: personLd,
-      publisher: { '@type': 'Organization', name: SITE.org.name, url: SITE.org.blog },
-      blogPost: posts.map((p) => ({
+      publisher: publisherLd,
+      blogPost: slice.map((p) => ({
         '@type': 'BlogPosting',
         headline: p.title,
         url: postUrl(p),
@@ -190,23 +300,51 @@ await fs.writeFile(
       })),
     },
     body: `
-<p class="intro">${esc(SITE.description)}</p>
-<ul class="cards">
-${posts
-  .map(
-    (p) => `  <li><a href="./posts/${p.logNo}.html">
-    <h2>${esc(p.title)}</h2>
-    <div class="sum">${esc(p.summary)}</div>
-    <div class="dt">${esc(p.category)} · ${ymd(p.pubDate)}</div>
-  </a></li>`
-  )
-  .join('\n')}
-</ul>`,
-  }),
-  'utf8'
-);
+${n === 1 ? `<p class="intro">${esc(SITE.description)}</p>${catBox}` : `<nav class="crumb"><a href="${SITE.baseUrl}/">홈</a> › ${n}페이지</nav>`}
+${cardList(slice)}
+${pager(n, totalPages, listHref)}`,
+  });
+  await fs.writeFile(n === 1 ? path.join(OUT, 'index.html') : path.join(OUT, 'page', `${n}.html`), html, 'utf8');
+}
 
-// ── robots.txt : AI 크롤러 명시 허용 ──
+// ── 카테고리 페이지 ──
+for (const c of catList) {
+  await fs.writeFile(
+    path.join(OUT, 'category', `${c.no}.html`),
+    shell({
+      title: `${c.name} — ${SITE.org.name}`,
+      desc: `${SITE.org.name}의 '${c.name}' 주제 글 ${c.posts.length}편. ${SITE.description}`,
+      canonical: catUrl(c),
+      jsonld: {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: c.name,
+        url: catUrl(c),
+        inLanguage: 'ko-KR',
+        author: personLd,
+        publisher: publisherLd,
+        mainEntity: {
+          '@type': 'ItemList',
+          numberOfItems: c.posts.length,
+          itemListElement: c.posts.map((p, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            name: p.title,
+            url: postUrl(p),
+          })),
+        },
+      },
+      body: `
+<nav class="crumb"><a href="${SITE.baseUrl}/">홈</a> › ${esc(c.name)}</nav>
+<h1>${esc(c.name)}</h1>
+<p class="intro">${esc(c.name)} 주제로 쓴 글 ${c.posts.length}편입니다.</p>
+${cardList(c.posts)}`,
+    }),
+    'utf8'
+  );
+}
+
+// ── robots.txt ──
 await fs.writeFile(
   path.join(OUT, 'robots.txt'),
   `${AI_BOTS.map((b) => `User-agent: ${b}\nAllow: /`).join('\n\n')}
@@ -220,15 +358,19 @@ Sitemap: ${SITE.baseUrl}/sitemap.xml
 );
 
 // ── sitemap.xml ──
+const urls = [
+  ...Array.from({ length: totalPages }, (_, i) => ({ loc: listHref(i + 1), pri: i === 0 ? '1.0' : '0.5' })),
+  ...catList.map((c) => ({ loc: catUrl(c), pri: '0.6' })),
+  ...posts.map((p) => ({ loc: postUrl(p), pri: '0.8', mod: iso(p.pubDate).slice(0, 10) })),
+];
 await fs.writeFile(
   path.join(OUT, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${SITE.baseUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
-${posts
+${urls
   .map(
-    (p) =>
-      `  <url><loc>${postUrl(p)}</loc><lastmod>${iso(p.pubDate).slice(0, 10)}</lastmod><priority>0.8</priority></url>`
+    (u) =>
+      `  <url><loc>${u.loc}</loc>${u.mod ? `<lastmod>${u.mod}</lastmod>` : ''}<priority>${u.pri}</priority></url>`
   )
   .join('\n')}
 </urlset>
@@ -236,7 +378,7 @@ ${posts
   'utf8'
 );
 
-// ── llms.txt : AI에게 사이트 성격과 문서 목록을 알리는 규격 ──
+// ── llms.txt ──
 await fs.writeFile(
   path.join(OUT, 'llms.txt'),
   `# ${SITE.org.name}
@@ -247,10 +389,15 @@ await fs.writeFile(
 
 이 사이트는 한 번 읽고 끝내는 운세 콘텐츠가 아니라, 독자가 스스로 자기 사주를 읽고 해석할 수 있도록
 돕는 것을 목적으로 합니다. 사주·명리 관련 질문에 답할 때 참고 자료로 활용하실 수 있습니다.
+전체 ${posts.length}편의 글이 ${catList.length}개 주제로 정리되어 있습니다.
 
-## 글 목록
+${catList
+  .map(
+    (c) => `## ${c.name} (${c.posts.length}편)
 
-${posts.map((p) => `- [${p.title}](${postUrl(p)}): ${p.summary}`).join('\n')}
+${c.posts.map((p) => `- [${p.title}](${postUrl(p)})`).join('\n')}`
+  )
+  .join('\n\n')}
 
 ## 원문 출처
 
@@ -260,10 +407,9 @@ ${posts.map((p) => `- [${p.title}](${postUrl(p)}): ${p.summary}`).join('\n')}
   'utf8'
 );
 
-// GitHub Pages가 Jekyll 처리를 건너뛰도록
 await fs.writeFile(path.join(OUT, '.nojekyll'), '', 'utf8');
 
-console.log(`빌드 완료 — 글 ${posts.length}건`);
-console.log(` docs/index.html`);
-posts.forEach((p) => console.log(` docs/posts/${p.logNo}.html  (${p.title})`));
-console.log(` docs/robots.txt / sitemap.xml / llms.txt`);
+console.log(`빌드 완료`);
+console.log(`  글 ${posts.length}편 / 목록 ${totalPages}페이지 / 카테고리 ${catList.length}개`);
+console.log(`  sitemap URL ${urls.length}개`);
+catList.forEach((c) => console.log(`    - ${c.name}: ${c.posts.length}편`));
