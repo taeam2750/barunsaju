@@ -60,7 +60,10 @@ a{color:inherit}
 header.site{background:#2f5d4b;box-shadow:0 2px 10px rgba(47,93,75,.18)}
 header.site .wrap{padding:22px 20px}
 header.site a.brand{font-size:21px;font-weight:800;color:#fff;text-decoration:none;letter-spacing:-.4px}
-header.site p{font-size:13px;color:#bfd6cb;margin-top:5px;word-break:keep-all}
+header.site p{font-size:13px;color:#bfd6cb;margin-top:5px;word-break:keep-all;
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 24px}
+/* 줄이 바뀌어도 전화번호는 항상 오른쪽 끝에 붙는다. */
+header.site a.tel{margin-left:auto;color:#fff;font-weight:700;text-decoration:none;white-space:nowrap}
 main{padding:34px 0 60px}
 h1{font-size:27px;font-weight:800;line-height:1.4;letter-spacing:-.5px;word-break:keep-all;margin-bottom:14px}
 .crumb{font-size:12.5px;color:#9a9188;margin-bottom:14px}
@@ -155,7 +158,10 @@ ${next ? `<link rel="next" href="${next}">` : ''}
 <body>
 <header class="site"><div class="wrap">
   <a class="brand" href="${SITE.baseUrl}/">${esc(SITE.org.name)}</a>
-  <p>사주·명리를 깊이 있게 공부하는 사람들을 위한 해설 아카이브</p>
+  <p>
+    <span>사주·명리를 깊이 있게 공부하는 사람들을 위한 해설 아카이브</span>
+    <a class="tel" href="tel:${SITE.org.tel.replace(/-/g, '')}">(Tel) ${esc(SITE.org.tel)}</a>
+  </p>
 </div></header>
 <main><div class="wrap">${body}</div></main>
 <footer class="site"><div class="wrap">
@@ -188,6 +194,7 @@ const publisherLd = {
   name: SITE.org.name,
   alternateName: SITE.org.alternateName,
   url: SITE.org.blog,
+  telephone: SITE.org.tel,
 };
 
 // 저작권자를 기계가 읽을 수 있게 명시한다. AI가 인용할 때 저자 귀속 신호로 쓰인다.

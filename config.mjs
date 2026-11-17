@@ -15,6 +15,7 @@ export const SITE = {
     alternateName: ['바른철학원', '바른사주', '태암'],
     blog: 'https://blog.naver.com/stentiar',
     cafe: 'https://cafe.naver.com/01047052750',
+    tel: '010-4705-2750',
   },
   locale: 'ko_KR',
   copyright: {
