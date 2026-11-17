@@ -100,7 +100,7 @@ article hr{border:0;border-top:1px solid #e8e3db;margin:28px 0}
 .cards .dt{font-size:12.5px;color:#9a9188;margin-top:7px}
 .intro{font-size:15.5px;color:#554e46;word-break:keep-all;margin-bottom:22px}
 .catbox{background:#fff;border:1px solid #e8e3db;border-radius:11px;padding:16px 18px;margin-bottom:8px}
-.catbox h3{font-size:12px;font-weight:800;color:#2f5d4b;letter-spacing:1px;margin-bottom:11px}
+.catbox h3{font-size:16px;font-weight:800;color:#2f5d4b;letter-spacing:1px;margin-bottom:11px}
 .catgrid{display:flex;flex-wrap:wrap;gap:7px}
 .catgrid a{font-size:13px;color:#4a443c;background:#f4f1ea;padding:5px 12px;border-radius:20px;text-decoration:none}
 .catgrid a:hover{background:#e3ece7;color:#2f5d4b}
