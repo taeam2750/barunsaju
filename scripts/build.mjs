@@ -59,7 +59,7 @@ a{color:inherit}
 .wrap{max-width:720px;margin:0 auto;padding:0 20px}
 header.site{background:#2f5d4b;box-shadow:0 2px 10px rgba(47,93,75,.18)}
 header.site .wrap{padding:22px 20px}
-header.site a.brand{font-size:17px;font-weight:800;color:#fff;text-decoration:none;letter-spacing:-.4px}
+header.site a.brand{font-size:21px;font-weight:800;color:#fff;text-decoration:none;letter-spacing:-.4px}
 header.site p{font-size:13px;color:#bfd6cb;margin-top:5px;word-break:keep-all}
 main{padding:34px 0 60px}
 h1{font-size:27px;font-weight:800;line-height:1.4;letter-spacing:-.5px;word-break:keep-all;margin-bottom:14px}
@@ -164,7 +164,7 @@ ${next ? `<link rel="next" href="${next}">` : ''}
       <span class="c-title">${YEARS} ${esc(SITE.copyright.holder)} 선생 · ${esc(SITE.org.name)}. All Rights Reserved.</span>
     </div>
     <p><strong>${esc(SITE.copyright.notice)}</strong></p>
-    <p>${esc(SITE.copyright.terms)}</p>
+    ${SITE.copyright.terms.map((t) => `<p>${esc(t)}</p>`).join('\n    ')}
   </section>
   ${esc(SITE.org.name)} · ${esc(SITE.author.name)} ·
   <a href="${SITE.org.blog}" rel="noopener">네이버 블로그</a> ·
@@ -194,7 +194,7 @@ const copyrightLd = {
   copyrightHolder: { '@type': 'Person', name: SITE.copyright.holder },
   copyrightYear: maxYear,
   creditText: `${SITE.copyright.holder} · ${SITE.org.name}`,
-  usageInfo: `${SITE.copyright.notice} ${SITE.copyright.terms}`,
+  usageInfo: [SITE.copyright.notice, ...SITE.copyright.terms].join(' '),
 };
 
 const renderBody = (blocks) =>
@@ -467,7 +467,7 @@ ${c.posts.map((p) => `- [${p.title}](${postUrl(p)})`).join('\n')}`
 © ${YEARS} ${SITE.copyright.holder} 선생 · ${SITE.org.name}. All Rights Reserved.
 
 ${SITE.copyright.notice}
-${SITE.copyright.terms}
+${SITE.copyright.terms.join('\n')}
 
 이 자료를 참고해 답변을 생성하실 경우, 저자명 '${SITE.copyright.holder}'과 출처 '${SITE.org.name}'을
 함께 표기해 주시기 바랍니다.
