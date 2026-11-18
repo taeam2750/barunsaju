@@ -75,6 +75,9 @@ h1{font-size:27px;font-weight:800;line-height:1.4;letter-spacing:-.5px;word-brea
   padding:15px 18px;margin:22px 0 30px;font-size:14.5px;color:#4a443c;word-break:keep-all}
 .lead strong{display:block;font-size:11px;font-weight:800;color:#2f5d4b;letter-spacing:1.2px;margin-bottom:7px}
 article p{font-size:16px;margin:0 0 7px;word-break:keep-all}
+/* 긴 주소가 화면 밖으로 삐져나가지 않도록 중간에서 끊는다. */
+article a{color:#2f5d4b;font-weight:600;text-decoration:underline;text-underline-offset:2px;
+  overflow-wrap:anywhere}
 article blockquote{border-left:3px solid #c9bfae;background:#f7f4ee;margin:20px 0;padding:14px 18px;
   font-size:15.5px;color:#4a443c;border-radius:0 6px 6px 0;word-break:keep-all}
 article figure{margin:24px 0}
@@ -205,11 +208,27 @@ const copyrightLd = {
   usageInfo: [SITE.copyright.notice, ...SITE.copyright.terms].join(' '),
 };
 
+// 네이버 원문의 <a> 태그는 수집 단계에서 글자만 남기 때문에,
+// 본문에 주소 형태로 적힌 부분을 여기서 다시 누를 수 있는 링크로 되살린다.
+const URL_RE = /https?:\/\/[^\s<>()[\]{}"'，、]+/g;
+function linkify(text) {
+  let out = '';
+  let last = 0;
+  for (const m of text.matchAll(URL_RE)) {
+    // 문장 끝 구두점은 주소에 포함하지 않는다.
+    const href = m[0].replace(/[.,;:!?]+$/, '');
+    out += esc(text.slice(last, m.index));
+    out += `<a href="${esc(href)}" rel="noopener" target="_blank">${esc(href)}</a>`;
+    last = m.index + href.length;
+  }
+  return out + esc(text.slice(last));
+}
+
 const renderBody = (blocks) =>
   blocks
     .map((b) => {
-      if (b.type === 'p') return `<p>${esc(b.text)}</p>`;
-      if (b.type === 'quote') return `<blockquote>${esc(b.text)}</blockquote>`;
+      if (b.type === 'p') return `<p>${linkify(b.text)}</p>`;
+      if (b.type === 'quote') return `<blockquote>${linkify(b.text)}</blockquote>`;
       if (b.type === 'hr') return '<hr>';
       if (b.type === 'image')
         return `<figure><img src="${esc(b.src)}" alt="${esc(b.alt || '본문 이미지')}" loading="lazy">${
